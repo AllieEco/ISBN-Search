@@ -18,9 +18,13 @@ class ISBNSearchApp {
             
             // Attendre que le DOM soit chargé
             if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => this.setupEventListeners());
+                document.addEventListener('DOMContentLoaded', () => {
+                    this.setupEventListeners();
+                    this.loadExampleBooks();
+                });
             } else {
                 this.setupEventListeners();
+                this.loadExampleBooks();
             }
             
             // Vérifier les capacités de l'appareil
@@ -213,11 +217,61 @@ class ISBNSearchApp {
                 ui.showNotFoundPrompt(validation.isbn);
             }
 
+            // Faire défiler jusqu'aux résultats, que le livre soit trouvé ou non
+            const resultsDiv = document.getElementById('results');
+            if (resultsDiv && resultsDiv.innerHTML) {
+                // Léger délai pour s'assurer que le DOM est peint
+                setTimeout(() => {
+                    resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            }
+
         } catch (error) {
             console.error('Erreur lors de la recherche:', error);
             ui.showError(`Erreur lors de la recherche: ${error.message}`);
         } finally {
             ui.showLoading(false);
+        }
+    }
+
+    /**
+     * Charger les livres d'exemple
+     */
+    async loadExampleBooks() {
+        const exampleISBNs = [
+            '9782401084629', // 1984
+            '9780156013987', // Le Petit Prince
+            '9782707302755', // La Distinction
+            '9782075155137'  // Le Prince de Motordu
+        ];
+
+        const container = document.getElementById('example-books-container');
+        if (!container) return;
+
+        container.innerHTML = '<div class="examples-loading">Chargement des exemples...</div>';
+
+        const bookPromises = exampleISBNs.map(async (isbn) => {
+            try {
+                const result = await bookAPI.searchByISBN(isbn);
+                if (result.success) {
+                    return result.data;
+                }
+            } catch (error) {
+                console.error(`Impossible de charger le livre d'exemple ${isbn}`, error);
+            }
+            return null;
+        });
+
+        const books = (await Promise.all(bookPromises)).filter(b => b);
+        
+        container.innerHTML = ''; // Nettoyer le message de chargement
+
+        if (books.length > 0) {
+            books.forEach(book => {
+                ui.displayExampleBook(book);
+            });
+        } else {
+            container.innerHTML = '<div class="examples-error">Impossible de charger les exemples.</div>';
         }
     }
 

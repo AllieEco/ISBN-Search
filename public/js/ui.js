@@ -130,6 +130,40 @@ class UIManager {
     }
 
     /**
+     * Afficher un livre d'exemple dans une carte
+     */
+    displayExampleBook(book) {
+        const container = document.getElementById('example-books-container');
+        if (!container) return;
+
+        const info = book.volumeInfo;
+        const identifiers = info.industryIdentifiers || [];
+        const isbn13 = identifiers.find(id => id.type === 'ISBN_13')?.identifier;
+        const isbn10 = identifiers.find(id => id.type === 'ISBN_10')?.identifier;
+        const isbnToUse = isbn13 || isbn10;
+        
+        if (!isbnToUse) return; // Impossible d'ajouter un exemple sans ISBN pour le clic
+
+        const bookCard = document.createElement('div');
+        bookCard.className = 'example-book-card';
+        bookCard.onclick = () => setISBN(isbnToUse); // Utiliser la fonction globale
+
+        const cover = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail;
+        
+        bookCard.innerHTML = `
+            <div class="example-book-cover">
+                ${cover ? `<img src="${cover}" alt="Couverture de ${info.title}">` : '<div class="no-cover-example">📚</div>'}
+            </div>
+            <div class="example-book-info">
+                <div class="example-book-title">${info.title || 'Titre inconnu'}</div>
+                <div class="example-book-author">${info.authors ? info.authors.join(', ') : 'Auteur inconnu'}</div>
+            </div>
+        `;
+
+        container.appendChild(bookCard);
+    }
+
+    /**
      * Afficher les informations d'un livre
      */
     displayBook(book) {
