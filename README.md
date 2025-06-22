@@ -4,6 +4,12 @@
 
 Une application moderne de recherche de livres par ISBN avec interface intuitive, scanner intégré et base de données locale.
 
+## 🔥 Nouveautés de la v2.0.0
+
+- 🌗 **Thème Clair/Sombre** - Adaptez l'interface à votre préférence visuelle.
+- 🛡️ **Sécurité renforcée** - Utilisation de Helmet et de la limitation de débit pour l'API.
+- ⚡ **Performances améliorées** - Optimisation du code frontend et backend.
+
 ## ✨ Fonctionnalités
 
 - 🔍 **Recherche par ISBN** - Trouvez n'importe quel livre par son numéro ISBN
@@ -12,6 +18,7 @@ Une application moderne de recherche de livres par ISBN avec interface intuitive
 - 💾 **Base de données locale** - Stockage des livres recherchés
 - ✏️ **Édition collaborative** - Enrichissez les informations manquantes
 - 🎨 **Interface moderne** - Design responsive et animations fluides
+- 🌗 **Thème Clair/Sombre** - Adaptez l'interface à votre préférence.
 - 🌍 **API REST** - Backend optionnel pour partage de données
 
 ## 🚀 Installation
@@ -58,7 +65,8 @@ isbn-search/
 │       ├── database.js       # Gestion base de données
 │       ├── api.js            # Services API
 │       ├── ui.js             # Interface utilisateur
-│       └── scanner.js        # Scanner ISBN
+│       ├── scanner.js        # Scanner ISBN
+│       └── theme.js          # Gestion du thème (clair/sombre)
 ├── data/                      # Base de données
 │   └── books.json           # Fichier JSON des livres
 ├── server.js                # Serveur backend
@@ -78,6 +86,8 @@ isbn-search/
 ### Backend (optionnel)
 - **Node.js** - Runtime JavaScript
 - **Express.js** - Framework web
+- **Helmet** - Sécurisation des en-têtes HTTP
+- **Express Rate Limit** - Prévention des attaques par force brute
 - **JSON** - Base de données simple
 
 ## 📖 Utilisation
