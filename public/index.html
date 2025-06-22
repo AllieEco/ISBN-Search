@@ -12,6 +12,13 @@
             <h1 onclick="goHome()">ISBN Search</h1>
             <p>Trouvez les informations d'un livre par son ISBN</p>
             
+            <div class="theme-switcher">
+                <button class="theme-toggle-btn" id="theme-toggle" aria-label="Toggle dark mode">
+                    <span class="icon-sun">☀️</span>
+                    <span class="icon-moon">🌙</span>
+                </button>
+            </div>
+
             <!-- Tooltip explicatif -->
             <div class="isbn-info">
                 <span class="isbn-question">Qu'est-ce qu'un ISBN ?</span>
@@ -86,6 +93,7 @@
 
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+    <script src="js/theme.js"></script>
     <script src="js/database.js"></script>
     <script src="js/api.js"></script>
     <script src="js/scanner.js"></script>
