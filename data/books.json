@@ -207,5 +207,83 @@
     "source": "google_api",
     "createdAt": "2025-06-22T13:12:37.358Z",
     "updatedAt": "2025-06-22T13:12:37.358Z"
+  },
+  "9782401084645": {
+    "title": "L'odyssée",
+    "subtitle": "extraits",
+    "authors": [
+      "Homère"
+    ],
+    "publishedDate": "2022",
+    "industryIdentifiers": [
+      {
+        "type": "ISBN_10",
+        "identifier": "2401084649"
+      },
+      {
+        "type": "ISBN_13",
+        "identifier": "9782401084643"
+      }
+    ],
+    "readingModes": {
+      "text": false,
+      "image": false
+    },
+    "pageCount": 0,
+    "printType": "BOOK",
+    "maturityRating": "NOT_MATURE",
+    "allowAnonLogging": false,
+    "contentVersion": "preview-1.0.0",
+    "panelizationSummary": {
+      "containsEpubBubbles": false,
+      "containsImageBubbles": false
+    },
+    "language": "fr",
+    "previewLink": "http://books.google.fr/books?id=zF6VzwEACAAJ&dq=isbn:9782401084645&hl=&cd=1&source=gbs_api",
+    "infoLink": "http://books.google.fr/books?id=zF6VzwEACAAJ&dq=isbn:9782401084645&hl=&source=gbs_api",
+    "canonicalVolumeLink": "https://books.google.com/books/about/L_odyss%C3%A9e.html?hl=&id=zF6VzwEACAAJ",
+    "isbn": "9782401084645",
+    "source": "google_api",
+    "createdAt": "2025-06-22T14:49:47.965Z",
+    "updatedAt": "2025-06-22T14:49:47.965Z"
+  },
+  "9782376970972": {
+    "title": "Ode au gameplay tranquille",
+    "subtitle": "Animal crossing",
+    "authors": [
+      "Pablo Algaba"
+    ],
+    "publishedDate": "2020-03-11",
+    "industryIdentifiers": [
+      {
+        "type": "ISBN_10",
+        "identifier": "2376970970"
+      },
+      {
+        "type": "ISBN_13",
+        "identifier": "9782376970972"
+      }
+    ],
+    "readingModes": {
+      "text": false,
+      "image": false
+    },
+    "pageCount": 240,
+    "printType": "BOOK",
+    "maturityRating": "NOT_MATURE",
+    "allowAnonLogging": false,
+    "contentVersion": "preview-1.0.0",
+    "panelizationSummary": {
+      "containsEpubBubbles": false,
+      "containsImageBubbles": false
+    },
+    "language": "fr",
+    "previewLink": "http://books.google.fr/books?id=3TxrzQEACAAJ&dq=isbn:9782376970972&hl=&cd=1&source=gbs_api",
+    "infoLink": "http://books.google.fr/books?id=3TxrzQEACAAJ&dq=isbn:9782376970972&hl=&source=gbs_api",
+    "canonicalVolumeLink": "https://books.google.com/books/about/Ode_au_gameplay_tranquille.html?hl=&id=3TxrzQEACAAJ",
+    "isbn": "9782376970972",
+    "source": "google_api",
+    "createdAt": "2025-06-22T15:10:06.422Z",
+    "updatedAt": "2025-06-22T15:10:06.422Z"
   }
 }

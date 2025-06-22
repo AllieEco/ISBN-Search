@@ -209,8 +209,8 @@ class ISBNSearchApp {
                 ui.displayBook(result.data);
 
             } else {
-                console.log('Livre non trouvé, affichage de l\'option de contribution');
-                ui.showContributeOption(validation.isbn);
+                console.log('Livre non trouvé, affichage de l\'invite de contribution');
+                ui.showNotFoundPrompt(validation.isbn);
             }
 
         } catch (error) {

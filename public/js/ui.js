@@ -145,38 +145,72 @@ class UIManager {
         const isFieldUnknown = (value) => !value || value === 'Inconnu' || value === 'Inconnue';
 
         const fields = {
+            title: {
+                value: info.title || 'Titre inconnu',
+                unknown: isFieldUnknown(info.title) || book.isNotFound,
+                example: 'Ex: Le Rouge et le Noir',
+                addLabel: 'Ajouter le titre'
+            },
             authors: {
                 value: info.authors ? info.authors.join(', ') : 'Inconnu',
-                unknown: isFieldUnknown(info.authors ? info.authors.join(', ') : null),
-                example: 'Ex: Victor Hugo, J.K. Rowling, Stephen King...'
+                unknown: isFieldUnknown(info.authors ? info.authors.join(', ') : null) || book.isNotFound,
+                example: 'Ex: Victor Hugo, J.K. Rowling, Stephen King...',
+                addLabel: 'Ajouter un auteur'
             },
             publisher: {
                 value: info.publisher || 'Inconnu',
-                unknown: isFieldUnknown(info.publisher),
-                example: 'Ex: Gallimard, Flammarion, Le Livre de Poche...'
+                unknown: isFieldUnknown(info.publisher) || book.isNotFound,
+                example: 'Ex: Gallimard, Flammarion, Le Livre de Poche...',
+                addLabel: 'Ajouter un éditeur'
             },
             publishedDate: {
                 value: info.publishedDate || 'Inconnue',
-                unknown: isFieldUnknown(info.publishedDate),
-                example: 'Ex: 2023, 15/03/2022, Mars 2021...'
+                unknown: isFieldUnknown(info.publishedDate) || book.isNotFound,
+                example: 'Ex: 2023, 15/03/2022, Mars 2021...',
+                addLabel: 'Ajouter la date'
             },
             pageCount: {
                 value: info.pageCount || 'Inconnu',
-                unknown: isFieldUnknown(info.pageCount),
-                example: 'Ex: 250, 432, 156...'
+                unknown: isFieldUnknown(info.pageCount) || book.isNotFound,
+                example: 'Ex: 250, 432, 156...',
+                addLabel: 'Ajouter le nbr de pages'
             }
         };
 
-        const bookHtml = this.generateBookHTML(info, fields, categories, isUnknown);
+        const bookHtml = this.generateBookHTML(book, info, fields, categories, isUnknown);
         resultsDiv.innerHTML = bookHtml;
+
+        if (book.isNotFound) {
+            const isbn = book.volumeInfo.industryIdentifiers[0].identifier;
+            const bookCard = resultsDiv.querySelector('.book-card');
+            if (bookCard) {
+                const actionsHtml = `
+                    <div class="contribute-actions">
+                        <button class="contribute-btn" onclick="ui.showBookForm('${isbn}')">
+                            <span class="icon">➕</span> Ajouter le livre
+                        </button>
+                        <button class="cancel-btn" onclick="ui.searchAgain()">
+                            <span class="icon">🔍</span> Nouvelle recherche
+                        </button>
+                    </div>
+                `;
+                bookCard.insertAdjacentHTML('afterend', actionsHtml);
+            }
+        }
     }
 
     /**
      * Générer le HTML pour l'affichage d'un livre
      */
-    generateBookHTML(info, fields, categories, isUnknown) {
+    generateBookHTML(book, info, fields, categories, isUnknown) {
+        const notFoundClass = book.isNotFound ? 'not-found-title' : '';
+        const bookCardClass = book.isNotFound ? 'book-card-not-found' : '';
+
+        // Séparer le titre des autres champs
+        const { title, ...otherFields } = fields;
+
         return `
-            <div class="book-card">
+            <div class="book-card ${bookCardClass}">
                 <div class="book-content">
                     <div class="book-cover">
                         ${info.imageLinks ? 
@@ -189,10 +223,10 @@ class UIManager {
                         }
                     </div>
                     <div class="book-details">
-                        <h2>${info.title || 'Titre inconnu'}</h2>
+                        ${this.generateTitleSection(title)}
                         
                         <div class="book-meta">
-                            ${this.generateMetaFields(fields)}
+                            ${this.generateMetaFields(otherFields)}
                             
                             <div class="meta-item">
                                 <div class="meta-label">Langue</div>
@@ -216,6 +250,27 @@ class UIManager {
     }
 
     /**
+     * Générer la section du titre éditable
+     */
+    generateTitleSection(titleField) {
+        return `
+            <div class="book-title-section ${titleField.unknown ? 'unknown' : ''}" data-field="title">
+                <div id="titleValue">
+                    <h2 class="${titleField.unknown ? 'not-found-title' : ''}">
+                        ${titleField.value}
+                        <button class="edit-field-btn" onclick="ui.toggleEditField('title')">${titleField.unknown ? titleField.addLabel : 'Modifier'}</button>
+                    </h2>
+                </div>
+                <div class="field-edit" id="titleEdit" style="display: none;">
+                    <input type="text" class="field-input title-input" id="titleInput" value="${titleField.value !== 'Titre inconnu' && titleField.value !== 'Livre non trouvé !' ? titleField.value : ''}" placeholder="${titleField.example}">
+                    <button class="field-save-btn" onclick="ui.saveField('title')">Sauver</button>
+                    <button class="field-cancel-btn" onclick="ui.cancelEditField('title')">Annuler</button>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
      * Générer les champs de métadonnées
      */
     generateMetaFields(fields) {
@@ -223,7 +278,7 @@ class UIManager {
             <div class="meta-item ${field.unknown ? 'unknown' : ''}" data-field="${fieldName}">
                 <div class="meta-label">
                     ${this.getFieldLabel(fieldName)}
-                    ${field.unknown ? `<button class="edit-field-btn" onclick="ui.toggleEditField('${fieldName}')">Ajouter</button>` : ''}
+                    <button class="edit-field-btn" onclick="ui.toggleEditField('${fieldName}')">${field.unknown ? field.addLabel : 'Modifier'}</button>
                 </div>
                 <div class="meta-value ${field.unknown ? 'unknown' : ''}" id="${fieldName}Value">${field.value}</div>
                 ${field.unknown ? `<div class="unknown-field-message">${field.example}</div>` : ''}
@@ -244,7 +299,7 @@ class UIManager {
             <div class="meta-item ${isUnknown ? 'unknown' : ''}" data-field="categories">
                 <div class="meta-label">
                     Catégories
-                    <button class="edit-btn" onclick="ui.toggleEditCategories()">Modifier</button>
+                    <button class="edit-btn" onclick="ui.toggleEditCategories()">${isUnknown ? 'Ajouter des catégories' : 'Modifier'}</button>
                 </div>
                 
                 <div class="categories-display" id="categoriesDisplay">
@@ -279,7 +334,7 @@ class UIManager {
             <div class="meta-item ${!hasDescription ? 'unknown' : ''}" data-field="description">
                 <div class="meta-label">
                     Description
-                    <button class="edit-${hasDescription ? 'btn' : 'field-btn'}" onclick="ui.toggleEditDescription()">${hasDescription ? 'Modifier' : 'Ajouter'}</button>
+                    <button class="edit-${hasDescription ? 'btn' : 'field-btn'}" onclick="ui.toggleEditDescription()">${hasDescription ? 'Modifier' : 'Ajouter une description'}</button>
                 </div>
                 <div class="meta-value ${!hasDescription ? 'unknown' : ''}" id="descriptionText">${description || 'Aucune description disponible'}</div>
                 ${!hasDescription ? `
@@ -302,6 +357,7 @@ class UIManager {
      */
     getFieldLabel(fieldName) {
         const labels = {
+            title: 'Titre',
             authors: 'Auteur(s)',
             publisher: 'Éditeur',
             publishedDate: 'Date de publication',
@@ -317,40 +373,73 @@ class UIManager {
         const languages = {
             'fr': 'Français',
             'en': 'Anglais',
-            'es': 'Espagnol',
             'de': 'Allemand',
+            'es': 'Espagnol',
             'it': 'Italien',
+            'nl': 'Néerlandais',
             'pt': 'Portugais',
             'ru': 'Russe',
             'ja': 'Japonais',
             'zh': 'Chinois',
             'ar': 'Arabe',
+            'la': 'Latin',
             'unknown': 'Inconnue',
             'demon': '👹 Démoniaque 👹'
         };
-        return languages[code] || code;
+        const name = languages[code] || code;
+        return name;
     }
 
     /**
-     * Afficher l'option de contribution
+     * Affiche une invite lorsque le livre n'est pas trouvé
      */
-    showContributeOption(isbn) {
+    showNotFoundPrompt(isbn) {
         const resultsDiv = document.getElementById('results');
         resultsDiv.innerHTML = `
             <div class="contribute-section">
-                <div class="contribute-title">📚 Livre non trouvé !</div>
+                <div class="contribute-title">📚 Livre non trouvé</div>
                 <div class="contribute-subtitle">
-                    L'ISBN <strong>${isbn}</strong> n'existe pas dans notre base de données.<br>
-                    Aidez-nous à enrichir notre catalogue en créant une fiche pour ce livre !
+                    Le livre avec l'ISBN <strong>${isbn}</strong> n'a pas été trouvé dans notre base de données.
                 </div>
-                <button class="contribute-btn" onclick="ui.showBookForm('${isbn}')">Créer une fiche livre</button>
-                <button class="contribute-btn" onclick="ui.searchAgain()" style="background: var(--white); color: var(--black);">Nouvelle recherche</button>
+                <div class="contribute-actions">
+                    <button class="contribute-btn" onclick="ui.displayBookNotFound('${isbn}')">
+                        <span class="icon">➕</span> Compléter les informations
+                    </button>
+                    <button class="cancel-btn" onclick="ui.searchAgain()">
+                        <span class="icon">🔍</span> Nouvelle recherche
+                    </button>
+                </div>
             </div>
         `;
     }
 
     /**
-     * Afficher le formulaire de création de livre
+     * Afficher le livre non trouvé en utilisant le template de livre
+     */
+    displayBookNotFound(isbn) {
+        const book = {
+            isNotFound: true,
+            volumeInfo: {
+                title: 'Livre non trouvé !',
+                authors: null,
+                publisher: null,
+                publishedDate: null,
+                pageCount: null,
+                categories: null,
+                language: 'unknown',
+                description: `Aucun livre avec l'ISBN <strong>${isbn}</strong> n'a été trouvé. Vous pouvez l'ajouter manuellement à la base de données locale pour le retrouver plus tard.`,
+                industryIdentifiers: [{
+                    type: 'ISBN',
+                    identifier: isbn
+                }],
+                imageLinks: null
+            }
+        };
+        this.displayBook(book);
+    }
+
+    /**
+     * Afficher le formulaire pour ajouter un livre
      */
     showBookForm(isbn) {
         const resultsDiv = document.getElementById('results');
@@ -428,7 +517,7 @@ class UIManager {
 
                 <div class="form-buttons">
                     <button class="submit-btn" onclick="ui.submitBookForm()">Créer la fiche</button>
-                    <button class="cancel-form-btn" onclick="ui.cancelBookForm()">Annuler</button>
+                    <button class="cancel-form-btn" onclick="ui.cancelBookForm('${isbn}')">Annuler</button>
                 </div>
             </div>
         `;
@@ -547,11 +636,10 @@ class UIManager {
     }
 
     /**
-     * Annuler le formulaire de création
+     * Annuler l'ajout d'un livre
      */
-    cancelBookForm() {
-        const isbn = document.getElementById('isbnField').value;
-        this.showContributeOption(isbn);
+    cancelBookForm(isbn) {
+        this.displayBookNotFound(isbn);
     }
 
     /**
@@ -629,6 +717,8 @@ class UIManager {
                 this.currentBook.volumeInfo.publishedDate = newValue !== 'Inconnue' ? newValue : null;
             } else if (fieldName === 'pageCount') {
                 this.currentBook.volumeInfo.pageCount = newValue !== 'Inconnu' ? parseInt(newValue) || null : null;
+            } else if (fieldName === 'title') {
+                this.currentBook.volumeInfo.title = newValue !== 'Titre inconnu' ? newValue : null;
             }
 
             // Sauvegarder dans la base de données
@@ -638,32 +728,34 @@ class UIManager {
             }
         }
         
-        valueDiv.textContent = newValue;
+        if (fieldName === 'title') {
+            valueDiv.querySelector('h2').childNodes[0].nodeValue = newValue + ' ';
+        } else {
+            valueDiv.textContent = newValue;
+        }
         
-        const isStillUnknown = newValue === 'Inconnu' || newValue === 'Inconnue';
+        const isStillUnknown = newValue === 'Inconnu' || newValue === 'Inconnue' || newValue === 'Titre inconnu';
         
         if (isStillUnknown) {
             metaItem.classList.add('unknown');
-            valueDiv.classList.add('unknown');
+            if (fieldName !== 'title') {
+                valueDiv.classList.add('unknown');
+            }
         } else {
             metaItem.classList.remove('unknown');
-            valueDiv.classList.remove('unknown');
+            if (fieldName !== 'title') {
+                valueDiv.classList.remove('unknown');
+            }
             
-            const addBtn = metaItem.querySelector('.edit-field-btn');
-            const helpMessage = metaItem.querySelector('.unknown-field-message');
-            if (addBtn) addBtn.remove();
-            if (helpMessage) helpMessage.remove();
-            
-            const label = metaItem.querySelector('.meta-label');
-            if (!label.querySelector('.edit-field-btn')) {
-                const editBtn = document.createElement('button');
-                editBtn.className = 'edit-field-btn';
+            // Mettre à jour le bouton
+            const editBtn = metaItem.querySelector('.edit-field-btn');
+            if (editBtn) {
                 editBtn.textContent = 'Modifier';
-                editBtn.style.backgroundColor = 'var(--gray)';
-                editBtn.style.color = 'var(--black)';
-                editBtn.style.borderColor = 'var(--black)';
-                editBtn.onclick = () => this.toggleEditField(fieldName);
-                label.appendChild(editBtn);
+            }
+
+            const helpMessage = metaItem.querySelector('.unknown-field-message');
+            if (helpMessage) {
+                helpMessage.remove();
             }
         }
         
@@ -746,6 +838,10 @@ class UIManager {
             if (message) {
                 message.remove();
             }
+            const editBtn = metaItem.querySelector('.edit-btn');
+            if (editBtn) {
+                editBtn.textContent = 'Modifier';
+            }
         }
         
         display.style.display = 'block';
@@ -825,14 +921,10 @@ class UIManager {
             }
             
             const label = metaItem.querySelector('.meta-label');
-            const addBtn = label.querySelector('.edit-field-btn');
-            if (addBtn) {
-                addBtn.remove();
-                const editBtn = document.createElement('button');
-                editBtn.className = 'edit-btn';
-                editBtn.textContent = 'Modifier';
-                editBtn.onclick = () => this.toggleEditDescription();
-                label.appendChild(editBtn);
+            const button = label.querySelector('button');
+            if (button) {
+                button.textContent = 'Modifier';
+                button.className = 'edit-btn';
             }
         }
         
