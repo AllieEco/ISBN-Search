@@ -1,4 +1,6 @@
-# 📚 ISBN Search App
+# 📚 ISBN Search
+
+![Aperçu de l'application](./docs/ISBN.png)
 
 Une application moderne de recherche de livres par ISBN avec interface intuitive, scanner intégré et base de données locale.
 
@@ -16,41 +18,38 @@ Une application moderne de recherche de livres par ISBN avec interface intuitive
 
 ### Version Frontend uniquement (localStorage)
 
-1. **Cloner le repository**
-```bash
-git clone https://github.com/votre-username/isbn-search-app.git
-cd isbn-search-app
-```
+1.  **Cloner le repository**
+    ```bash
+    git clone https://github.com/votre-username/isbn-search.git
+    cd isbn-search
+    ```
 
-2. **Ouvrir dans un navigateur**
-```bash
-# Simplement ouvrir index.html dans votre navigateur
-# ou utiliser un serveur local
-python -m http.server 8000
-# puis aller sur http://localhost:8000
-```
+2.  **Ouvrir dans un navigateur**
+    Ouvrez simplement le fichier `public/index.html` dans votre navigateur ou utilisez un serveur local pour servir le dossier `public`.
 
 ### Version complète avec backend
 
-1. **Installer les dépendances**
-```bash
-npm install
-```
+1.  **Installer les dépendances**
+    ```bash
+    npm install
+    ```
 
-2. **Démarrer le serveur de développement**
-```bash
-npm run dev
-```
+2.  **Démarrer le serveur de développement**
+    ```bash
+    node server.js
+    ```
+    ou pour le développement avec redémarrage automatique si `nodemon` est installé :
+    ```bash
+    nodemon server.js
+    ```
 
-3. **Accéder à l'application**
-```
-http://localhost:3000
-```
+3.  **Accéder à l'application**
+    `http://localhost:3000`
 
 ## 📁 Structure du projet
 
 ```
-isbn-search-app/
+isbn-search/
 ├── public/                    # Frontend statique
 │   ├── index.html            # Page principale
 │   ├── styles.css            # Styles CSS
@@ -60,12 +59,11 @@ isbn-search-app/
 │       ├── api.js            # Services API
 │       ├── ui.js             # Interface utilisateur
 │       └── scanner.js        # Scanner ISBN
-├── data/                     # Base de données
+├── data/                      # Base de données
 │   └── books.json           # Fichier JSON des livres
-├── scripts/                 # Scripts utilitaires
-├── server.js               # Serveur backend (optionnel)
-├── package.json           # Configuration Node.js
-└── README.md             # Documentation
+├── server.js                # Serveur backend
+├── package.json             # Configuration Node.js
+└── README.md                # Documentation
 ```
 
 ## 🛠️ Technologies utilisées
@@ -81,8 +79,6 @@ isbn-search-app/
 - **Node.js** - Runtime JavaScript
 - **Express.js** - Framework web
 - **JSON** - Base de données simple
-- **CORS** - Gestion des requêtes cross-origin
-- **Helmet** - Sécurité HTTP
 
 ## 📖 Utilisation
 
@@ -107,39 +103,17 @@ isbn-search-app/
 2. Renseignez les informations manquantes
 3. Sauvegardez pour enrichir la base de données
 
-## 🔧 Configuration
-
-### Variables d'environnement (backend)
-```bash
-PORT=3000                    # Port du serveur
-NODE_ENV=development         # Environnement (development/production)
-DB_PATH=./data/books.json   # Chemin vers la base de données
-```
-
-### Limites par défaut
-- **Taille d'image** : 5MB maximum
-- **Rate limiting** : 100 requêtes/15min par IP
-- **Formats supportés** : JPG, PNG, WebP
-
 ## 📡 API REST (backend)
 
 ### Endpoints disponibles
 
 #### Livres
-```bash
+```
 GET    /api/books           # Rechercher des livres
 GET    /api/books/:isbn     # Obtenir un livre par ISBN
 POST   /api/books           # Créer un nouveau livre
 PUT    /api/books/:isbn     # Mettre à jour un livre
 DELETE /api/books/:isbn     # Supprimer un livre
-```
-
-#### Utilitaires
-```bash
-GET    /api/health          # Status du serveur
-GET    /api/stats           # Statistiques de la base
-POST   /api/books/:isbn/cover  # Upload de couverture
-GET    /api/external/google/:isbn  # Recherche Google Books
 ```
 
 ### Exemples d'utilisation
@@ -168,40 +142,22 @@ curl -X POST "http://localhost:3000/api/books" \
 - **9782707302755** - La Distinction (Pierre Bourdieu)
 - **9782075155137** - Le Prince de Motordu (Pef)
 
-## 🎯 Easter Eggs
-
-L'application contient quelques surprises cachées :
-- Essayez l'ISBN `6666666666666` pour une expérience... diabolique 👹
-- Les animations changent selon le contexte
-- Mode sombre automatique selon l'heure
-
-## 🚦 Scripts npm
-
-```bash
-npm start          # Démarrer le serveur de production
-npm run dev        # Démarrer en mode développement
-npm test           # Lancer les tests
-npm run build      # Construire pour la production
-npm run lint       # Vérifier le code
-npm run backup     # Sauvegarder la base de données
-```
-
 ## 🤝 Contribution
 
-1. **Fork** le repository
-2. **Créer** une branche pour votre fonctionnalité
-```bash
-git checkout -b feature/nouvelle-fonctionnalite
-```
-3. **Commiter** vos changements
-```bash
-git commit -m "Ajout de la nouvelle fonctionnalité"
-```
-4. **Pousser** vers la branche
-```bash
-git push origin feature/nouvelle-fonctionnalite
-```
-5. **Créer** une Pull Request
+1.  **Fork** le repository
+2.  **Créer** une branche pour votre fonctionnalité
+    ```bash
+    git checkout -b feature/nouvelle-fonctionnalite
+    ```
+3.  **Commiter** vos changements
+    ```bash
+    git commit -m "Ajout de la nouvelle fonctionnalite"
+    ```
+4.  **Pousser** vers la branche
+    ```bash
+    git push origin feature/nouvelle-fonctionnalite
+    ```
+5.  **Créer** une Pull Request
 
 ## 📝 License
 
@@ -219,8 +175,8 @@ Si vous trouvez un bug, merci de :
 
 ## 📞 Support
 
-- **Issues GitHub** : [Créer une issue](https://github.com/votre-username/isbn-search-app/issues)
-- **Discussions** : [GitHub Discussions](https://github.com/votre-username/isbn-search-app/discussions)
+- **Issues GitHub** : [Créer une issue](https://github.com/votre-username/isbn-search/issues)
+- **Discussions** : [GitHub Discussions](https://github.com/votre-username/isbn-search/discussions)
 - **Email** : votre.email@example.com
 
 ## 🙏 Remerciements
@@ -232,4 +188,4 @@ Si vous trouvez un bug, merci de :
 
 ---
 
-⭐ **N'hésitez pas à star le repository si ce projet vous plaît !**
+⭐ **N'hésitez pas à star le repository si ce projet vous plaît !** 
