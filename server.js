@@ -15,7 +15,7 @@ class ISBNServer {
     constructor() {
         this.app = express();
         this.port = process.env.PORT || 3000;
-        this.dbFile = path.join(__dirname, 'data', 'isbn-books.json'); // Nouveau nom plus clair
+        this.dbFile = path.join(__dirname, 'data', 'books.json'); // Utiliser books.json existant
         this.books = {};
         
         this.setupMiddleware();
@@ -597,6 +597,82 @@ class ISBNServer {
                 });
             }
         }
+
+    /**
+     * Importer des données depuis localStorage
+     */
+    async importFromLocalStorage(req, res) {
+        try {
+            const { books } = req.body;
+
+            if (!books || typeof books !== 'object') {
+                return res.status(400).json({ error: 'Données de livres invalides' });
+            }
+
+            let importedCount = 0;
+            let updatedCount = 0;
+
+            for (const [isbn, bookData] of Object.entries(books)) {
+                const validation = this.validateISBN(isbn);
+                if (!validation.valid) {
+                    console.log(`⚠️ ISBN invalide ignoré: ${isbn}`);
+                    continue;
+                }
+
+                const normalizedISBN = this.normalizeISBN(validation.isbn);
+                
+                if (this.books[normalizedISBN]) {
+                    // Mettre à jour si le livre existe déjà
+                    this.books[normalizedISBN] = {
+                        ...this.books[normalizedISBN],
+                        ...bookData,
+                        updatedAt: new Date().toISOString()
+                    };
+                    updatedCount++;
+                } else {
+                    // Ajouter le nouveau livre
+                    this.books[normalizedISBN] = {
+                        ...bookData,
+                        isbn: normalizedISBN,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    };
+                    importedCount++;
+                }
+            }
+
+            await this.saveDatabase();
+
+            res.json({
+                success: true,
+                message: `Synchronisation réussie`,
+                imported: importedCount,
+                updated: updatedCount,
+                total: Object.keys(this.books).length
+            });
+        } catch (error) {
+            console.error('❌ Erreur importFromLocalStorage:', error);
+            res.status(500).json({ error: 'Erreur lors de l\'import' });
+        }
+    }
+
+    /**
+     * Exporter les données vers localStorage
+     */
+    async exportToLocalStorage(req, res) {
+        try {
+            res.json({
+                success: true,
+                books: this.books,
+                total: Object.keys(this.books).length,
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error('❌ Erreur exportToLocalStorage:', error);
+            res.status(500).json({ error: 'Erreur lors de l\'export' });
+        }
+    }
+
     errorHandler(error, req, res, next) {
         console.error('❌ Erreur non gérée:', error);
         
