@@ -731,6 +731,9 @@ if (require.main === module) {
     });
     
     server.start();
+} else {
+    // Export pour Vercel : on initialise le serveur et on exporte l'app Express
+    const server = new ISBNServer();
+    // Vercel a besoin que l'initialisation (chargement DB) soit terminée
+    module.exports = server.loadDatabase().then(() => server.app);
 }
-
-module.exports = ISBNServer;
