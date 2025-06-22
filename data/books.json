@@ -285,5 +285,47 @@
     "source": "google_api",
     "createdAt": "2025-06-22T15:10:06.422Z",
     "updatedAt": "2025-06-22T15:10:06.422Z"
+  },
+  "9782266283038": {
+    "title": "Le meilleur des mondes",
+    "authors": [
+      "Aldous Huxley"
+    ],
+    "publishedDate": "2017-08-17",
+    "description": "Voici près d'un siècle, dans d'étourdissantes visions, Aldous Huxley imagine une civilisation future jusque dans ses rouages les plus surprenants : un Etat Mondial, parfaitement hiérarchisé, a cantonné les derniers humains \"sauvages\" dans des réserves. La culture in vitro des foetus a engendré le règne des \"Alphas \", génétiquement déterminés à être l'élite dirigeante. Les castes inférieures, elles, sont conditionnées pour se satisfaire pleinement de leur sort. Dans cette société où le bonheur est loi, famille, monogamie, sentiments sont bannis. Le meilleur des mondes est possible. Aujourd'hui, il nous paraît même familier...",
+    "industryIdentifiers": [
+      {
+        "type": "ISBN_10",
+        "identifier": "2266283030"
+      },
+      {
+        "type": "ISBN_13",
+        "identifier": "9782266283038"
+      }
+    ],
+    "readingModes": {
+      "text": false,
+      "image": false
+    },
+    "pageCount": 320,
+    "printType": "BOOK",
+    "categories": [
+      "Fiction"
+    ],
+    "maturityRating": "NOT_MATURE",
+    "allowAnonLogging": false,
+    "contentVersion": "preview-1.0.0",
+    "panelizationSummary": {
+      "containsEpubBubbles": false,
+      "containsImageBubbles": false
+    },
+    "language": "fr",
+    "previewLink": "http://books.google.fr/books?id=k7auswEACAAJ&dq=isbn:9782266283038&hl=&cd=1&source=gbs_api",
+    "infoLink": "http://books.google.fr/books?id=k7auswEACAAJ&dq=isbn:9782266283038&hl=&source=gbs_api",
+    "canonicalVolumeLink": "https://books.google.com/books/about/Le_meilleur_des_mondes.html?hl=&id=k7auswEACAAJ",
+    "isbn": "9782266283038",
+    "source": "google_api",
+    "createdAt": "2025-06-22T21:00:09.840Z",
+    "updatedAt": "2025-06-22T21:00:09.840Z"
   }
 }

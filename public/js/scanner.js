@@ -130,20 +130,18 @@ class ISBNScanner {
 
             console.log('🔍 Début de l\'analyse de l\'image:', file.name, file.size, 'bytes');
 
-            // Vérifier que Tesseract est disponible
             if (typeof Tesseract === 'undefined') {
-                throw new Error('Tesseract.js n\'est pas chargé. Vérifiez que le script est inclus.');
+                throw new Error('Tesseract.js n\'est pas chargé.');
             }
 
-            // Convertir le fichier en image
             const img = await this.fileToImage(file);
             console.log('🖼️ Image convertie:', img.width, 'x', img.height);
             
-            // Analyser l'image
-            const isbn = await this.recognizeISBNFromImage(img, (progress) => {
+            // Analyser l'image avec tentatives de rotation
+            const isbn = await this.recognizeISBNFromImage(img, (attempt, progress) => {
                 const percentage = Math.round(progress * 100);
-                uploadBtn.textContent = `📁 ${percentage}%`;
-                console.log('📊 Progression OCR:', percentage + '%');
+                uploadBtn.textContent = `📁 ${attempt}/4: ${percentage}%`;
+                console.log(`📊 Progression OCR (essai ${attempt}): ${percentage}%`);
             });
 
             if (isbn) {
@@ -216,21 +214,19 @@ class ISBNScanner {
 
             console.log('🤖 Début reconnaissance Tesseract depuis canvas');
             
-            const result = await Tesseract.recognize(canvas, 'eng', {
+            const result = await Tesseract.recognize(canvas, 'eng+fra', {
                 logger: (m) => {
-                    console.log('📝 Tesseract log:', m);
                     if (m.status === 'recognizing text' && progressCallback) {
                         progressCallback(m.progress);
                     }
                 },
-                tessedit_char_whitelist: '0123456789X-',
-                tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT
+                tessedit_char_whitelist: '0123456789-Xx', // Xx pour la fin des ISBN-10
             });
 
             const text = result.data.text;
             console.log('📖 Texte reconnu (caméra):', text);
             
-            return this.extractISBNFromText(text);
+            return this.extractISBN(text);
             
         } catch (error) {
             console.error('❌ Erreur Tesseract (canvas):', error);
@@ -239,167 +235,106 @@ class ISBNScanner {
     }
 
     /**
-     * Reconnaissance ISBN à partir d'une image
+     * Reconnaissance ISBN à partir d'une image, avec 4 tentatives de rotation.
      */
     async recognizeISBNFromImage(img, progressCallback) {
         try {
-            // Vérifier que Tesseract est disponible
             if (typeof Tesseract === 'undefined') {
                 throw new Error('Tesseract.js n\'est pas chargé. Vérifiez que le script est inclus dans index.html.');
             }
+            
+            const angles = [0, 90, 180, 270];
+            let attempt = 0;
 
-            console.log('🤖 Début reconnaissance Tesseract depuis image');
-            
-            const result = await Tesseract.recognize(img, 'eng', {
-                logger: (m) => {
-                    console.log('📝 Tesseract log:', m);
-                    if (m.status === 'recognizing text' && progressCallback) {
-                        progressCallback(m.progress);
-                    }
-                },
-                tessedit_char_whitelist: '0123456789X-',
-                tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT
-            });
+            for (const angle of angles) {
+                attempt++;
+                console.log(`🌀 Tentative ${attempt}/${angles.length}: Rotation à ${angle}°`);
 
-            const text = result.data.text;
-            console.log('📖 Texte reconnu (image):', text);
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                // Inverser largeur/hauteur pour les rotations de 90/270
+                if (angle === 90 || angle === 270) {
+                    canvas.width = img.height;
+                    canvas.height = img.width;
+                } else {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                }
+
+                // Placer le point d'origine au centre, pivoter, puis dessiner l'image
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.rotate(angle * Math.PI / 180);
+                ctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+                const result = await Tesseract.recognize(canvas, 'eng+fra', {
+                    logger: (m) => {
+                        if (m.status === 'recognizing text' && progressCallback) {
+                            progressCallback(attempt, m.progress);
+                        }
+                    },
+                    tessedit_char_whitelist: '0123456789-Xx',
+                });
+
+                const text = result.data.text;
+                console.log(`📖 Texte reconnu (rotation ${angle}°):`, text.substring(0, 100) + '...');
+                const isbn = this.extractISBN(text);
+
+                if (isbn) {
+                    console.log(`✅ ISBN trouvé avec une rotation de ${angle}°`);
+                    return isbn;
+                }
+            }
             
-            return this.extractISBNFromPhotoText(text);
-            
+            console.log('❌ Aucun ISBN trouvé après toutes les rotations.');
+            return null;
+
         } catch (error) {
             console.error('❌ Erreur Tesseract (image):', error);
             throw error;
         }
     }
-
+    
     /**
-     * Extraire l'ISBN du texte reconnu (caméra)
+     * Extrait un ISBN (10 ou 13) d'une chaîne de texte avec une regex.
+     * @param {string} text - Le texte brut reconnu par l'OCR.
+     * @returns {string|null} L'ISBN nettoyé ou null.
      */
-    extractISBNFromText(text) {
-        const cleanText = text.replace(/\s+/g, '').replace(/[^\d\-]/g, '');
+    extractISBN(text) {
+        console.log('🔍 Recherche d\'ISBN dans le texte:', text);
         
-        // Pattern pour ISBN-13
-        const isbn13Pattern = /(\d{3}[\-]?\d{1}[\-]?\d{3}[\-]?\d{5}[\-]?\d{1})/;
-        // Pattern pour ISBN-10
-        const isbn10Pattern = /(\d{1}[\-]?\d{3}[\-]?\d{5}[\-]?[\dX]{1})/;
+        // Regex pour trouver un ISBN-13 (avec ou sans préfixe "ISBN")
+        // Prend en compte les tirets optionnels
+        // 978-x-xxx-xxxxx-x ou 979-x-xxx-xxxxx-x
+        const isbn13Regex = /(?:ISBN-13:?\s*)?(97[89][-\s]?\d{1,5}[-\s]?\d{1,7}[-\s]?\d{1,6}[-\s]?\d)/g;
         
-        // Chercher ISBN-13 complet
-        let match = text.match(/97[89]\d{10}/);
-        if (match) {
-            const isbn = match[0];
-            return this.formatISBN(isbn);
-        }
-        
-        // Chercher ISBN-10
-        match = cleanText.match(isbn10Pattern);
-        if (match) {
-            const isbn = match[1].replace(/[\-]/g, '');
-            if (isbn.length === 10) {
-                return this.formatISBN(isbn);
-            }
-        }
-        
-        // Chercher tous les nombres et voir s'il y en a un qui ressemble à un ISBN
-        const allNumbers = text.match(/\d+/g);
-        if (allNumbers) {
-            for (let num of allNumbers) {
-                if (num.length === 13 && (num.startsWith('978') || num.startsWith('979'))) {
-                    return this.formatISBN(num);
-                }
-            }
-        }
-        
-        return null;
-    }
+        // Regex pour un ISBN-10
+        // x-xxx-xxxxx-x
+        const isbn10Regex = /(?:ISBN-10:?\s*)?(\d[-\s]?\d{3}[-\s]?\d{5}[-\s]?[0-9X_x])/g;
 
-    /**
-     * Extraire l'ISBN du texte d'une photo uploadée
-     */
-    extractISBNFromPhotoText(text) {
-        console.log('Analyse du texte photo:', text);
-        
         const lines = text.split('\n');
-        
-        // Analyser ligne par ligne
-        for (let line of lines) {
-            // Ignorer les lignes qui ressemblent à des codes-barres
-            if (line.match(/^\d{12,}$/)) {
-                console.log('Ligne ignorée (code-barres probable):', line);
-                continue;
-            }
+        for (const line of lines) {
+            let match;
             
-            const isbn = this.findISBNInLine(line);
-            if (isbn) {
-                console.log('ISBN trouvé dans la ligne:', line, '-> ISBN:', isbn);
-                return isbn;
+            // Chercher d'abord un ISBN-13, plus courant
+            match = isbn13Regex.exec(line);
+            if (match && match[1]) {
+                const isbn = match[1].replace(/[-\s]/g, ''); // Nettoyer
+                console.log('✅ ISBN-13 trouvé et nettoyé:', isbn);
+                if (isbn.length === 13) return isbn;
             }
-        }
-        
-        // Si rien trouvé ligne par ligne, analyser tout le texte
-        return this.findISBNInLine(text);
-    }
 
-    /**
-     * Trouver un ISBN dans une ligne de texte
-     */
-    findISBNInLine(line) {
-        const cleaned = line.replace(/[^\d\-X\s]/g, ' ').replace(/\s+/g, ' ').trim();
-        
-        // Patterns pour ISBN-13
-        const isbn13Patterns = [
-            /\b(978[\s\-]?\d[\s\-]?\d{2}[\s\-]?\d{6}[\s\-]?\d)\b/g,
-            /\b(979[\s\-]?\d[\s\-]?\d{2}[\s\-]?\d{6}[\s\-]?\d)\b/g,
-            /\b(978\d{10})\b/g,
-            /\b(979\d{10})\b/g
-        ];
-        
-        // Patterns pour ISBN-10
-        const isbn10Patterns = [
-            /\b(\d[\s\-]?\d{2}[\s\-]?\d{6}[\s\-]?[\dX])\b/g,
-            /\b(\d{9}[\dX])\b/g
-        ];
-        
-        // Chercher ISBN-13 d'abord
-        for (let pattern of isbn13Patterns) {
-            const matches = [...cleaned.matchAll(pattern)];
-            for (let match of matches) {
-                const potentialISBN = match[1].replace(/[\s\-]/g, '');
-                if (potentialISBN.length === 13) {
-                    return this.formatISBN(potentialISBN);
-                }
+            // Si pas d'ISBN-13, chercher un ISBN-10
+            match = isbn10Regex.exec(line);
+            if (match && match[1]) {
+                const isbn = match[1].replace(/[-\s]/g, ''); // Nettoyer
+                console.log('✅ ISBN-10 trouvé et nettoyé:', isbn);
+                if (isbn.length === 10) return isbn;
             }
         }
-        
-        // Puis ISBN-10
-        for (let pattern of isbn10Patterns) {
-            const matches = [...cleaned.matchAll(pattern)];
-            for (let match of matches) {
-                const potentialISBN = match[1].replace(/[\s\-]/g, '');
-                if (potentialISBN.length === 10) {
-                    // Éviter les numéros qui commencent par 0 ou 1 (probablement pas des ISBN)
-                    if (!potentialISBN.match(/^[01]/)) {
-                        return this.formatISBN(potentialISBN);
-                    }
-                }
-            }
-        }
-        
+
+        console.log('❌ Aucun ISBN valide trouvé dans le texte.');
         return null;
-    }
-
-    /**
-     * Formater un ISBN pour l'affichage
-     */
-    formatISBN(isbn) {
-        const clean = isbn.replace(/[^\dX]/g, '');
-        
-        if (clean.length === 13) {
-            return `${clean.slice(0,3)}-${clean.slice(3,4)}-${clean.slice(4,6)}-${clean.slice(6,12)}-${clean.slice(12)}`;
-        } else if (clean.length === 10) {
-            return `${clean.slice(0,1)}-${clean.slice(1,3)}-${clean.slice(3,9)}-${clean.slice(9)}`;
-        }
-        
-        return clean;
     }
 
     /**
