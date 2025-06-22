@@ -173,19 +173,4 @@ Si vous trouvez un bug, merci de :
    - Navigateur et version utilisés
    - Captures d'écran si pertinentes
 
-## 📞 Support
-
-- **Issues GitHub** : [Créer une issue](https://github.com/votre-username/isbn-search/issues)
-- **Discussions** : [GitHub Discussions](https://github.com/votre-username/isbn-search/discussions)
-- **Email** : votre.email@example.com
-
-## 🙏 Remerciements
-
-- **Google Books API** - Pour les données de livres
-- **Tesseract.js** - Pour la reconnaissance optique
-- **OpenLibrary** - Pour les données complémentaires
-- **Contributors** - Merci à tous les contributeurs
-
----
-
 ⭐ **N'hésitez pas à star le repository si ce projet vous plaît !** 
