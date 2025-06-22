@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISBN Search</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 onclick="goHome()">ISBN Search</h1>
+            <p>Trouvez les informations d'un livre par son ISBN</p>
+            
+            <!-- Tooltip explicatif -->
+            <div class="isbn-info">
+                <span class="isbn-question">Qu'est-ce qu'un ISBN ?</span>
+                <div class="isbn-tooltip">
+                    <div class="tooltip-title">📖 ISBN - Numéro d'identification</div>
+                    <div class="tooltip-content">
+                        L'<strong>ISBN</strong> (International Standard Book Number) est un numéro unique qui identifie chaque livre publié dans le monde.
+                    </div>
+                    <div class="tooltip-location">
+                        <div class="tooltip-location-title">🔍 Où le trouver ?</div>
+                        <div class="tooltip-location-list">
+                            • <strong>Page de copyright</strong> (verso de la page de titre)<br>
+                            • <strong>Quatrième de couverture</strong> (dos du livre)<br>
+                            • <strong>Au-dessus du code-barres</strong><br>
+                            • <strong>Parfois sur la tranche</strong> du livre
+                        </div>
+                    </div>
+                    <div class="tooltip-examples">
+                        Format : 978-2-401-08462-9 ou 9782401084629
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="search-section">
+            <div class="search-form">
+                <div class="input-group">
+                    <label for="isbnInput">Numéro ISBN</label>
+                    <input type="text" id="isbnInput" placeholder="9782070541270" maxlength="17">
+                </div>
+                <div class="scan-options">
+                    <button class="scan-btn" onclick="startISBNScan()" id="scanBtn">
+                        📷 Scanner
+                    </button>
+                    <button class="upload-btn" onclick="document.getElementById('isbnPhotoInput').click()" id="uploadBtn">
+                        📁 Photo
+                    </button>
+                </div>
+                <input type="file" id="isbnPhotoInput" class="isbn-photo-input" accept="image/*" onchange="analyzeISBNPhoto(event)">
+                <button class="search-btn" onclick="searchBook()">
+                    <span id="btnText">Rechercher</span>
+                </button>
+            </div>
+
+            <div class="examples">
+                <h3>Exemples à tester</h3>
+                <span class="example-isbn" onclick="setISBN('9782401084629')">1984</span>
+                <span class="example-isbn" onclick="setISBN('9780156013987')">Le Petit Prince</span>
+                <span class="example-isbn" onclick="setISBN('9782707302755')">La Distinction</span>
+                <span class="example-isbn" onclick="setISBN('9782075155137')">Le Prince de Motordu</span>
+            </div>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            Recherche en cours...
+        </div>
+
+        <div id="results"></div>
+
+        <!-- Modal Camera -->
+        <div class="camera-modal" id="cameraModal">
+            <div class="camera-container">
+                <div class="camera-title">📷 Scanner un ISBN</div>
+                <video class="camera-video" id="cameraVideo" autoplay playsinline></video>
+                <div class="camera-actions">
+                    <button class="capture-btn" onclick="captureISBN()">Capturer</button>
+                    <button class="close-camera-btn" onclick="stopISBNScan()">Fermer</button>
+                </div>
+                <div class="scan-status" id="scanStatus">Positionnez l'ISBN devant la caméra</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/scanner.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
