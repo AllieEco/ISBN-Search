@@ -327,5 +327,47 @@
     "source": "google_api",
     "createdAt": "2025-06-22T21:00:09.840Z",
     "updatedAt": "2025-06-22T21:00:09.840Z"
+  },
+  "9782738146724": {
+    "title": "Les Philo-cognitifs",
+    "subtitle": "Ils n'aiment que penser et penser autrement...",
+    "authors": [
+      "Olivier Revol",
+      "Dominique Sappey-Marinier",
+      "Fanny Nusbaum"
+    ],
+    "publishedDate": "2019-01-30",
+    "description": "Ils n'aiment que penser et penser autrement... Les philo-cognitifs sont ces individus, enfants ou adultes, qui réfléchissent de façon différente et ne peuvent s'arrêter de penser. Appelés tour à tour surdoués, précoces, hauts potentiels, ils ont été décrits d'une seule et même façon, alors qu'ils révèlent en vérité deux types distincts d'intelligence. Là où certains, brillants et inadaptés, font la révolution de la pensée, d'autres, en effet, s'imposent comme les piliers de leur environnement, lui apportant raison et équilibre. Parce qu'à l'évidence les \"hauts potentiels\" ne sont pas tous les mêmes, deux psys et un neuroscientifique proposent, pour la première fois, de dégager les caractéristiques essentielles qui vont avec tel ou tel grand profil, en s'appuyant sur la clinique, mais également sur les neurosciences. Vous aussi vous avez une pensée hors norme ? Alors partez à la rencontre de vous-même et découvrez si vous êtes plutôt ouvreur de voie ou couteau suisse, interpréteur ou explorateur, sympathique ou empathique, instinctif ou intuitif... Des explications lumineuses pour mieux se comprendre en profondeur ; des conseils adaptés pour mieux vivre au quotidien.",
+    "industryIdentifiers": [
+      {
+        "type": "ISBN_10",
+        "identifier": "2738146724"
+      },
+      {
+        "type": "ISBN_13",
+        "identifier": "9782738146724"
+      }
+    ],
+    "readingModes": {
+      "text": false,
+      "image": false
+    },
+    "pageCount": 219,
+    "printType": "BOOK",
+    "maturityRating": "NOT_MATURE",
+    "allowAnonLogging": false,
+    "contentVersion": "preview-1.0.0",
+    "panelizationSummary": {
+      "containsEpubBubbles": false,
+      "containsImageBubbles": false
+    },
+    "language": "fr",
+    "previewLink": "http://books.google.fr/books?id=tIRHwQEACAAJ&dq=isbn:9782738146724&hl=&cd=1&source=gbs_api",
+    "infoLink": "http://books.google.fr/books?id=tIRHwQEACAAJ&dq=isbn:9782738146724&hl=&source=gbs_api",
+    "canonicalVolumeLink": "https://books.google.com/books/about/Les_Philo_cognitifs.html?hl=&id=tIRHwQEACAAJ",
+    "isbn": "9782738146724",
+    "source": "google_api",
+    "createdAt": "2025-06-22T21:10:35.566Z",
+    "updatedAt": "2025-06-22T21:10:35.566Z"
   }
 }
