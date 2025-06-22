@@ -34,8 +34,8 @@
 }
 
 [data-theme="dark"] {
-    --bordeaux: #e57373; /* A lighter Bordeaux for dark mode */
-    --red: #ff8a80; /* A lighter red for dark mode */
+    --bordeaux: #5865F2; /* Discord Purple */
+    --red: #7983f3;      /* Lighter Discord Purple */
 
     /* Dark Theme */
     --background: #222222;
@@ -48,11 +48,11 @@
     --card-shadow: #000000;
     --input-background: #333333;
     --input-border: #555555;
-    --button-background: #e57373;
-    --button-text: #222222;
-    --button-hover-background: #ff8a80;
-    --link-color: #e57373;
-    --link-hover-color: #ff8a80;
+    --button-background: #5865F2;
+    --button-text: #ffffff;
+    --button-hover-background: #7983f3;
+    --link-color: #5865F2;
+    --link-hover-color: #7983f3;
     --tag-background: #3a3a3a;
     --tag-border: #777777;
 }
@@ -346,13 +346,13 @@ body::before {
     background: var(--gray);
     padding: 40px;
     margin-bottom: 60px;
-    transition: background-color 0.3s ease;
+    border: 3px solid var(--card-border);
+    box-shadow: 8px 8px 0px var(--card-shadow);
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 [data-theme="dark"] .search-section {
     background: var(--card-background);
-    border: 3px solid var(--card-border);
-    box-shadow: 8px 8px 0px var(--card-shadow);
 }
 
 .search-form {
