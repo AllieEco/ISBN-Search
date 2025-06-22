@@ -1,3 +1,5 @@
+require('dotenv').config({ path: '.env.local' });
+
 /**
  * Serveur backend pour ISBN Search
  * Version simplifiée et corrigée
@@ -5,18 +7,75 @@
 
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs').promises;
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const fetch = require('node-fetch');
+const { db } = require('@vercel/postgres');
+const fs = require('fs').promises; // Gardé uniquement pour la migration initiale
+
+/**
+ * Met en place la base de données.
+ * Crée la table si elle n'existe pas et migre les données depuis le JSON.
+ */
+async function setupDatabase() {
+    console.log('🔧 Initialisation de la base de données...');
+    try {
+        // Créer la table si elle n'existe pas
+        const createTableQuery = `
+            CREATE TABLE IF NOT EXISTS books (
+                isbn TEXT PRIMARY KEY,
+                data JSONB NOT NULL
+            );
+        `;
+        await db.query(createTableQuery);
+        console.log('✅ Table "books" vérifiée/créée.');
+
+        // Migrer les données depuis le fichier JSON
+        const dbFile = path.join(__dirname, 'data', 'books.json');
+        let booksJson = {};
+        try {
+            const data = await fs.readFile(dbFile, 'utf8');
+            booksJson = JSON.parse(data);
+        } catch (error) {
+            console.warn(`⚠️ Fichier books.json non trouvé ou invalide, migration ignorée.`, error.message);
+            return;
+        }
+
+        const booksToMigrate = Object.entries(booksJson);
+        if (booksToMigrate.length === 0) {
+            console.log('➡️ Aucune donnée à migrer depuis le JSON.');
+            return;
+        }
+
+        console.log(`⏳ Migration de ${booksToMigrate.length} livres depuis books.json...`);
+        
+        const client = await db.connect();
+        try {
+            for (const [isbn, bookData] of booksToMigrate) {
+                 // On utilise ON CONFLICT pour ne pas écraser les données existantes
+                const insertQuery = `
+                    INSERT INTO books (isbn, data) VALUES ($1, $2)
+                    ON CONFLICT (isbn) DO NOTHING;
+                `;
+                await client.query(insertQuery, [isbn, JSON.stringify(bookData)]);
+            }
+        } finally {
+            client.release();
+        }
+
+        console.log('🎉 Migration terminée avec succès.');
+
+    } catch (error) {
+        console.error('❌ Erreur critique lors de la mise en place de la base de données :', error);
+        // On ne quitte pas le processus pour permettre au serveur de démarrer malgré tout
+    }
+}
 
 class ISBNServer {
     constructor() {
         this.app = express();
         this.port = process.env.PORT || 3000;
-        this.dbFile = path.join(__dirname, 'data', 'books.json'); // Utiliser books.json existant
-        this.books = {};
         
         this.setupMiddleware();
         this.setupRoutes();
@@ -89,64 +148,6 @@ class ISBNServer {
     }
 
     /**
-     * Charger la base de données
-     */
-    async loadDatabase() {
-        try {
-            // Créer le dossier data s'il n'existe pas
-            await fs.mkdir(path.dirname(this.dbFile), { recursive: true });
-            
-            // Charger le fichier JSON
-            const data = await fs.readFile(this.dbFile, 'utf8');
-            this.books = JSON.parse(data);
-            console.log(`📚 Base de données chargée depuis ${this.dbFile}: ${Object.keys(this.books).length} livres`);
-            
-            // Afficher quelques titres pour confirmation
-            const titles = Object.values(this.books).slice(0, 3).map(book => book.title).filter(Boolean);
-            if (titles.length > 0) {
-                console.log(`📖 Exemples de livres: ${titles.join(', ')}...`);
-            }
-            
-        } catch (error) {
-            if (error.code === 'ENOENT') {
-                console.log(`📝 Création d'une nouvelle base de données: ${this.dbFile}`);
-                this.books = {};
-                await this.saveDatabase();
-            } else {
-                console.error('❌ Erreur lors du chargement de la base:', error);
-            }
-        }
-    }
-
-    /**
-     * Sauvegarder la base de données
-     */
-    async saveDatabase() {
-        try {
-            // Créer une sauvegarde horodatée de temps en temps
-            const now = new Date();
-            if (now.getMinutes() % 30 === 0) { // Backup toutes les 30 minutes
-                const backupFile = this.dbFile.replace('.json', `-backup-${now.toISOString().slice(0, 16).replace(/:/g, '-')}.json`);
-                try {
-                    await fs.copyFile(this.dbFile, backupFile);
-                    console.log(`💾 Sauvegarde créée: ${path.basename(backupFile)}`);
-                } catch (e) {
-                    // Ignorer les erreurs de backup
-                }
-            }
-            
-            // Formater le JSON pour qu'il soit lisible
-            const formattedData = JSON.stringify(this.books, null, 2);
-            await fs.writeFile(this.dbFile, formattedData, 'utf8');
-            
-            console.log(`💽 Base de données sauvegardée: ${Object.keys(this.books).length} livres dans ${path.basename(this.dbFile)}`);
-        } catch (error) {
-            console.error('❌ Erreur lors de la sauvegarde:', error);
-            throw error;
-        }
-    }
-
-    /**
      * Nettoyer l'ISBN
      */
     cleanISBN(isbn) {
@@ -212,13 +213,16 @@ class ISBNServer {
     /**
      * Trouver un livre par toutes ses variantes ISBN
      */
-    findBookByISBN(isbn) {
+    async findBookByISBN(isbn) {
         const variants = this.getISBNVariants(isbn);
         
-        for (const variant of variants) {
-            if (this.books[variant]) {
-                return { book: this.books[variant], foundISBN: variant };
-            }
+        const query = `SELECT data FROM books WHERE isbn = ANY($1)`;
+        const { rows } = await db.query(query, [variants]);
+
+        if (rows.length > 0) {
+            // On retourne le livre trouvé et l'ISBN qui a correspondu
+            const foundData = rows[0].data;
+            return { book: foundData, foundISBN: foundData.isbn };
         }
         
         return null;
@@ -243,12 +247,23 @@ class ISBNServer {
      * Health check
      */
     async healthCheck(req, res) {
-        res.json({
-            status: 'OK',
-            timestamp: new Date().toISOString(),
-            version: '2.0.0',
-            booksCount: Object.keys(this.books).length
-        });
+        try {
+            const result = await db.query('SELECT COUNT(*) as count FROM books');
+            const booksCount = result.rows[0].count;
+            res.json({
+                status: 'OK',
+                timestamp: new Date().toISOString(),
+                version: '2.0.0',
+                database: 'connected',
+                booksCount: parseInt(booksCount, 10)
+            });
+        } catch(e) {
+             res.status(500).json({
+                status: 'ERROR',
+                database: 'disconnected',
+                error: e.message
+             });
+        }
     }
 
     /**
@@ -258,25 +273,20 @@ class ISBNServer {
         try {
             const { isbn } = req.params;
             const validation = this.validateISBN(isbn);
-            
             if (!validation.valid) {
                 return res.status(400).json({ error: validation.error });
             }
 
-            const result = this.findBookByISBN(validation.isbn);
-            if (!result) {
-                return res.status(404).json({ error: 'Livre non trouvé' });
-            }
+            const result = await this.findBookByISBN(validation.isbn);
 
-            res.json({
-                success: true,
-                data: result.book,
-                source: 'database',
-                foundWithISBN: result.foundISBN
-            });
+            if (result && result.book) {
+                res.json(result.book);
+            } else {
+                res.status(404).json({ error: `Livre avec l'ISBN ${isbn} non trouvé` });
+            }
         } catch (error) {
             console.error('❌ Erreur getBook:', error);
-            res.status(500).json({ error: 'Erreur serveur' });
+            res.status(500).json({ error: 'Erreur interne du serveur' });
         }
     }
 
@@ -285,50 +295,37 @@ class ISBNServer {
      */
     async createBook(req, res) {
         try {
-            const { isbn, ...bookData } = req.body;
-            
-            if (!isbn) {
-                return res.status(400).json({ error: 'ISBN requis' });
+            const bookData = req.body;
+            if (!bookData || !bookData.isbn) {
+                return res.status(400).json({ error: 'Données du livre ou ISBN manquant' });
             }
 
-            const validation = this.validateISBN(isbn);
+            const validation = this.validateISBN(bookData.isbn);
             if (!validation.valid) {
                 return res.status(400).json({ error: validation.error });
             }
-
-            // Normaliser l'ISBN pour le stockage
             const normalizedISBN = this.normalizeISBN(validation.isbn);
-
-            // Vérifier si le livre existe déjà (toutes variantes)
-            const existing = this.findBookByISBN(validation.isbn);
-            if (existing) {
-                return res.status(409).json({ 
-                    error: `Ce livre existe déjà sous l'ISBN ${existing.foundISBN}` 
-                });
-            }
-
-            // Créer le livre avec l'ISBN normalisé
-            const newBook = {
+            
+            const finalBookData = {
                 ...bookData,
                 isbn: normalizedISBN,
                 createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                source: 'user_created'
+                updatedAt: new Date().toISOString()
             };
 
-            this.books[normalizedISBN] = newBook;
-            await this.saveDatabase();
+            const query = `
+                INSERT INTO books (isbn, data) VALUES ($1, $2)
+                ON CONFLICT (isbn) DO UPDATE SET data = EXCLUDED.data
+                RETURNING data;
+            `;
 
-            console.log(`📚 Nouveau livre créé: ${newBook.title || 'Sans titre'} (${normalizedISBN})`);
+            const { rows } = await db.query(query, [normalizedISBN, JSON.stringify(finalBookData)]);
+            
+            res.status(201).json(rows[0].data);
 
-            res.status(201).json({
-                success: true,
-                data: newBook,
-                message: 'Livre créé avec succès'
-            });
         } catch (error) {
             console.error('❌ Erreur createBook:', error);
-            res.status(500).json({ error: 'Erreur serveur' });
+            res.status(500).json({ error: 'Erreur lors de la création du livre' });
         }
     }
 
@@ -338,35 +335,38 @@ class ISBNServer {
     async updateBook(req, res) {
         try {
             const { isbn } = req.params;
-            const updates = req.body;
+            const bookData = req.body;
 
             const validation = this.validateISBN(isbn);
             if (!validation.valid) {
                 return res.status(400).json({ error: validation.error });
             }
+            const normalizedISBN = this.normalizeISBN(validation.isbn);
 
-            if (!this.books[validation.isbn]) {
-                return res.status(404).json({ error: 'Livre non trouvé' });
+            // 1. Récupérer les données existantes
+            const existingQuery = 'SELECT data FROM books WHERE isbn = $1';
+            const { rows: existingRows } = await db.query(existingQuery, [normalizedISBN]);
+
+            if (existingRows.length === 0) {
+                return res.status(404).json({ error: `Livre avec l'ISBN ${isbn} non trouvé` });
             }
 
-            // Mettre à jour le livre
-            this.books[validation.isbn] = {
-                ...this.books[validation.isbn],
-                ...updates,
-                isbn: validation.isbn, // Garder l'ISBN original
+            // 2. Fusionner les données
+            const updatedData = {
+                ...existingRows[0].data,
+                ...bookData,
                 updatedAt: new Date().toISOString()
             };
 
-            await this.saveDatabase();
+            // 3. Mettre à jour dans la base
+            const updateQuery = 'UPDATE books SET data = $1 WHERE isbn = $2 RETURNING data;';
+            const { rows } = await db.query(updateQuery, [JSON.stringify(updatedData), normalizedISBN]);
 
-            res.json({
-                success: true,
-                data: this.books[validation.isbn],
-                message: 'Livre mis à jour avec succès'
-            });
+            res.json(rows[0].data);
+
         } catch (error) {
             console.error('❌ Erreur updateBook:', error);
-            res.status(500).json({ error: 'Erreur serveur' });
+            res.status(500).json({ error: 'Erreur lors de la mise à jour du livre' });
         }
     }
 
@@ -377,110 +377,77 @@ class ISBNServer {
         try {
             const { isbn } = req.params;
             const validation = this.validateISBN(isbn);
-            
-            if (!validation.valid) {
+             if (!validation.valid) {
                 return res.status(400).json({ error: validation.error });
             }
+            const normalizedISBN = this.normalizeISBN(validation.isbn);
 
-            if (!this.books[validation.isbn]) {
-                return res.status(404).json({ error: 'Livre non trouvé' });
+            const query = 'DELETE FROM books WHERE isbn = $1 RETURNING isbn;';
+            const { rowCount } = await db.query(query, [normalizedISBN]);
+
+            if (rowCount > 0) {
+                res.status(204).send(); // No content
+            } else {
+                res.status(404).json({ error: `Livre avec l'ISBN ${isbn} non trouvé` });
             }
-
-            delete this.books[validation.isbn];
-            await this.saveDatabase();
-
-            res.json({
-                success: true,
-                message: 'Livre supprimé avec succès'
-            });
         } catch (error) {
             console.error('❌ Erreur deleteBook:', error);
-            res.status(500).json({ error: 'Erreur serveur' });
+            res.status(500).json({ error: 'Erreur lors de la suppression du livre' });
         }
     }
 
     /**
-     * Rechercher des livres
+     * Rechercher des livres (par titre, auteur, etc.)
      */
     async searchBooks(req, res) {
         try {
-            const { q, limit = 20, offset = 0 } = req.query;
-            
-            let results = Object.values(this.books);
-
-            // Filtrer par recherche textuelle si fournie
-            if (q) {
-                const searchTerm = q.toLowerCase();
-                results = results.filter(book => {
-                    const title = (book.title || '').toLowerCase();
-                    const authors = (book.authors || []).join(' ').toLowerCase();
-                    const publisher = (book.publisher || '').toLowerCase();
-                    
-                    return title.includes(searchTerm) || 
-                           authors.includes(searchTerm) || 
-                           publisher.includes(searchTerm);
-                });
+            const { q, limit = 10, offset = 0 } = req.query;
+            if (!q) {
+                // Si pas de query, retourner les derniers livres ajoutés
+                const query = 'SELECT data FROM books ORDER BY (data->>\'createdAt\') DESC LIMIT $1 OFFSET $2';
+                const { rows } = await db.query(query, [limit, offset]);
+                return res.json(rows.map(r => r.data));
             }
 
-            // Pagination
-            const total = results.length;
-            const paginatedResults = results.slice(offset, offset + parseInt(limit));
+            const searchTerm = `%${q}%`;
+            const query = `
+                SELECT data FROM books
+                WHERE 
+                    data->>'title' ILIKE $1 OR
+                    data->>'authors' ILIKE $1 OR
+                    data->>'publisher' ILIKE $1 OR
+                    data->>'description' ILIKE $1
+                ORDER BY (data->>'createdAt') DESC
+                LIMIT $2 OFFSET $3;
+            `;
+            const { rows } = await db.query(query, [searchTerm, limit, offset]);
 
-            res.json({
-                success: true,
-                data: paginatedResults,
-                pagination: {
-                    total,
-                    limit: parseInt(limit),
-                    offset: parseInt(offset),
-                    hasMore: (offset + parseInt(limit)) < total
-                }
-            });
+            res.json(rows.map(r => r.data));
+
         } catch (error) {
             console.error('❌ Erreur searchBooks:', error);
-            res.status(500).json({ error: 'Erreur serveur' });
+            res.status(500).json({ error: 'Erreur lors de la recherche de livres' });
         }
     }
 
     /**
-     * Obtenir les statistiques
+     * Obtenir des statistiques sur la base de données
      */
     async getStats(req, res) {
         try {
-            const books = Object.values(this.books);
+            const { rows } = await db.query('SELECT COUNT(*) as total FROM books');
+            const total = parseInt(rows[0].total, 10);
             
-            // Calculer les statistiques
-            const stats = {
-                totalBooks: books.length,
-                sources: books.reduce((acc, book) => {
-                    acc[book.source] = (acc[book.source] || 0) + 1;
-                    return acc;
-                }, {}),
-                languages: books.reduce((acc, book) => {
-                    const lang = book.language || 'unknown';
-                    acc[lang] = (acc[lang] || 0) + 1;
-                    return acc;
-                }, {}),
-                categories: books.reduce((acc, book) => {
-                    if (book.categories) {
-                        book.categories.forEach(cat => {
-                            acc[cat] = (acc[cat] || 0) + 1;
-                        });
-                    }
-                    return acc;
-                }, {}),
-                lastUpdated: books.length > 0 ? 
-                    Math.max(...books.map(b => new Date(b.updatedAt || b.createdAt).getTime())) : 
-                    null
-            };
-
+            // On pourrait ajouter d'autres stats ici (derniers ajouts, etc.)
             res.json({
-                success: true,
-                data: stats
+                totalBooks: total,
+                // On peut mettre une date statique pour la source initiale
+                initialDataSource: 'data/books.json', 
             });
+
         } catch (error) {
             console.error('❌ Erreur getStats:', error);
-            res.status(500).json({ error: 'Erreur serveur' });
+            res.status(500).json({ error: 'Erreur interne du serveur' });
         }
     }
 
@@ -488,6 +455,16 @@ class ISBNServer {
      * Upload de couverture
      */
     async uploadCover(req, res) {
+        // Pour l'instant, on se contente de retourner une erreur 501 Not Implemented
+        // car la logique de stockage de fichiers n'est pas implémentée.
+        // La solution serait d'utiliser Vercel Blob Storage ici.
+        return res.status(501).json({ 
+            error: 'La fonctionnalité d\'upload de couverture n\'est pas encore implémentée.',
+            suggestion: 'Utiliser Vercel Blob Storage.'
+        });
+
+        // La logique ci-dessous est obsolète car elle sauve en local
+        /*
         try {
             const { isbn } = req.params;
             const { coverData } = req.body;
@@ -522,81 +499,87 @@ class ISBNServer {
             console.error('❌ Erreur uploadCover:', error);
             res.status(500).json({ error: 'Erreur serveur' });
         }
+        */
     }
 
-        /**
-         * Rechercher via l'API Google Books
-         */
-        async searchGoogleBooks(req, res) {
-            try {
-                const { isbn } = req.params;
-                const validation = this.validateISBN(isbn);
-                
-                if (!validation.valid) {
-                    return res.status(400).json({ error: validation.error });
-                }
+    /**
+     * Rechercher via l'API Google Books
+     */
+    async searchGoogleBooks(req, res) {
+        try {
+            const { isbn } = req.params;
+            const validation = this.validateISBN(isbn);
 
-                console.log(`📡 Recherche Google Books pour ISBN: ${validation.isbn}`);
+            if (!validation.valid) {
+                return res.status(400).json({ error: validation.error, source: 'validation' });
+            }
 
-                // Vérifier d'abord si le livre existe déjà dans notre base
-                const existing = this.findBookByISBN(validation.isbn);
-                if (existing) {
-                    console.log(`📚 Livre déjà en base sous ISBN ${existing.foundISBN}`);
-                    return res.json({
-                        success: true,
-                        items: [{
-                            volumeInfo: existing.book
-                        }],
-                        source: 'local_database'
-                    });
-                }
+            console.log(`📡 Recherche Google Books pour ISBN: ${validation.isbn}`);
 
-                // Appel à l'API Google Books
-                const url = `https://www.googleapis.com/books/v1/volumes?q=isbn:${validation.isbn}`;
-                
-                const response = await fetch(url);
-                
-                if (!response.ok) {
-                    throw new Error(`Erreur API Google Books: ${response.status}`);
-                }
-                
-                const data = await response.json();
-
-                if (data.items && data.items.length > 0) {
-                    // Sauvegarder automatiquement avec l'ISBN normalisé
-                    const bookInfo = data.items[0].volumeInfo;
-                    const normalizedISBN = this.normalizeISBN(validation.isbn);
-                    
-                    this.books[normalizedISBN] = {
-                        ...bookInfo,
-                        isbn: normalizedISBN,
-                        source: 'google_api',
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString()
-                    };
-                    await this.saveDatabase();
-
-                    console.log(`✅ Livre trouvé et sauvegardé: ${bookInfo.title} (${normalizedISBN})`);
-
-                    res.json({
-                        success: true,
-                        items: data.items,
-                        source: 'google_api_server'
-                    });
-                } else {
-                    res.status(404).json({
-                        success: false,
-                        error: 'Livre non trouvé dans l\'API Google Books'
-                    });
-                }
-            } catch (error) {
-                console.error('❌ Erreur searchGoogleBooks:', error);
-                res.status(500).json({ 
-                    error: 'Erreur lors de la recherche Google Books',
-                    details: error.message 
+            // Vérifier d'abord si le livre existe déjà dans notre base
+            const existing = await this.findBookByISBN(validation.isbn);
+            if (existing) {
+                console.log(`📚 Livre déjà en base sous ISBN ${existing.foundISBN}`);
+                return res.json({
+                    success: true,
+                    items: [{
+                        volumeInfo: existing.book
+                    }],
+                    source: 'local_database'
                 });
             }
+
+            // Appel à l'API Google Books
+            const url = `https://www.googleapis.com/books/v1/volumes?q=isbn:${validation.isbn}`;
+            
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                throw new Error(`Erreur API Google Books: ${response.status}`);
+            }
+            
+            const data = await response.json();
+
+            if (data.items && data.items.length > 0) {
+                // Sauvegarder automatiquement avec l'ISBN normalisé
+                const bookInfo = data.items[0].volumeInfo;
+                const normalizedISBN = this.normalizeISBN(validation.isbn);
+                
+                const bookToSave = {
+                    ...bookInfo,
+                    isbn: normalizedISBN,
+                    source: 'google_api',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+
+                const query = `
+                    INSERT INTO books (isbn, data) VALUES ($1, $2)
+                    ON CONFLICT (isbn) DO NOTHING;
+                `;
+                await db.query(query, [normalizedISBN, JSON.stringify(bookToSave)]);
+
+                console.log(`✅ Livre trouvé et sauvegardé via Google API: ${bookInfo.title} (${normalizedISBN})`);
+
+                res.json({
+                    success: true,
+                    items: data.items,
+                    source: 'google_api_server'
+                });
+            } else {
+                res.status(404).json({
+                    success: false,
+                    error: 'Livre non trouvé dans l\'API Google Books'
+                });
+            }
+        } catch (error) {
+            console.error('❌ Erreur searchGoogleBooks:', error);
+            res.status(500).json({ 
+                error: 'Erreur lors de la recherche Google Books',
+                details: error.message 
+            });
         }
+    }
 
     /**
      * Importer des données depuis localStorage
@@ -612,43 +595,57 @@ class ISBNServer {
             let importedCount = 0;
             let updatedCount = 0;
 
-            for (const [isbn, bookData] of Object.entries(books)) {
-                const validation = this.validateISBN(isbn);
-                if (!validation.valid) {
-                    console.log(`⚠️ ISBN invalide ignoré: ${isbn}`);
-                    continue;
-                }
+            const client = await db.connect();
+            try {
+                for (const [isbn, bookData] of Object.entries(books)) {
+                    const validation = this.validateISBN(isbn);
+                    if (!validation.valid) {
+                        console.log(`⚠️ ISBN invalide ignoré: ${isbn}`);
+                        continue;
+                    }
 
-                const normalizedISBN = this.normalizeISBN(validation.isbn);
-                
-                if (this.books[normalizedISBN]) {
-                    // Mettre à jour si le livre existe déjà
-                    this.books[normalizedISBN] = {
-                        ...this.books[normalizedISBN],
-                        ...bookData,
-                        updatedAt: new Date().toISOString()
-                    };
-                    updatedCount++;
-                } else {
-                    // Ajouter le nouveau livre
-                    this.books[normalizedISBN] = {
+                    const normalizedISBN = this.normalizeISBN(validation.isbn);
+                    
+                    const finalBookData = {
                         ...bookData,
                         isbn: normalizedISBN,
-                        createdAt: new Date().toISOString(),
+                        createdAt: bookData.createdAt || new Date().toISOString(),
                         updatedAt: new Date().toISOString()
                     };
-                    importedCount++;
+
+                    const query = `
+                        INSERT INTO books (isbn, data) VALUES ($1, $2)
+                        ON CONFLICT (isbn) DO UPDATE SET data = jsonb_set(
+                            books.data, 
+                            '{updatedAt}', 
+                            to_jsonb($3::text),
+                            true
+                         ) WHERE (books.data->>'updatedAt')::timestamptz < $3::timestamptz
+                        RETURNING xmax;
+                    `;
+                    // xmax=0 si INSERT, >0 si UPDATE
+                    const { rows } = await client.query(query, [normalizedISBN, JSON.stringify(finalBookData), finalBookData.updatedAt]);
+                    
+                    if (rows.length > 0) {
+                        if (rows[0].xmax === 0) {
+                            importedCount++;
+                        } else {
+                            updatedCount++;
+                        }
+                    }
                 }
+            } finally {
+                client.release();
             }
 
-            await this.saveDatabase();
+            const { rows: totalRows } = await db.query('SELECT COUNT(*) as total FROM books');
 
             res.json({
                 success: true,
                 message: `Synchronisation réussie`,
                 imported: importedCount,
                 updated: updatedCount,
-                total: Object.keys(this.books).length
+                total: parseInt(totalRows[0].total, 10)
             });
         } catch (error) {
             console.error('❌ Erreur importFromLocalStorage:', error);
@@ -661,10 +658,16 @@ class ISBNServer {
      */
     async exportToLocalStorage(req, res) {
         try {
+            const { rows } = await db.query('SELECT isbn, data FROM books');
+            const books = rows.reduce((acc, row) => {
+                acc[row.isbn] = row.data;
+                return acc;
+            }, {});
+
             res.json({
                 success: true,
-                books: this.books,
-                total: Object.keys(this.books).length,
+                books: books,
+                total: rows.length,
                 timestamp: new Date().toISOString()
             });
         } catch (error) {
@@ -687,11 +690,10 @@ class ISBNServer {
      */
     async start() {
         try {
-            await this.loadDatabase();
+            // La mise en place de la DB est maintenant gérée de manière globale
             
             this.app.listen(this.port, () => {
                 console.log(`🚀 Serveur ISBN Search démarré sur le port ${this.port}`);
-                console.log(`📚 Base de données: ${Object.keys(this.books).length} livres`);
                 console.log(`🌐 URL: http://localhost:${this.port}`);
                 console.log(`📊 API: http://localhost:${this.port}/api/health`);
             });
@@ -706,8 +708,8 @@ class ISBNServer {
      */
     async stop() {
         try {
-            await this.saveDatabase();
-            console.log('💾 Base de données sauvegardée');
+            // Il n'y a plus de sauvegarde de fichier à faire
+            console.log('✅ Serveur arrêté proprement');
             process.exit(0);
         } catch (error) {
             console.error('❌ Erreur lors de l\'arrêt:', error);
@@ -716,24 +718,45 @@ class ISBNServer {
     }
 }
 
-// Démarrer le serveur si ce fichier est exécuté directement
+const server = new ISBNServer();
+
+// On crée une promesse unique pour l'initialisation.
+// Le serveur ne démarrera pas si la base de données n'est pas accessible.
+const initPromise = setupDatabase().then(() => {
+    console.log('✅ Base de données prête.');
+    return server; // On retourne l'instance du serveur une fois prête.
+}).catch(err => {
+    console.error("‼️ ERREUR CRITIQUE: L'INITIALISATION DE LA DB A ÉCHOUÉ ‼️", err);
+    process.exit(1); // Arrête le processus si la DB ne peut être contactée.
+});
+
+// Pour Vercel (`vercel deploy` et `vercel dev`)
+// On exporte une fonction `async` que Vercel peut exécuter.
+module.exports = async (req, res) => {
+    try {
+        // On attend que la promesse d'initialisation soit résolue
+        const initializedServer = await initPromise;
+        // On passe la requête à l'application Express une fois prête
+        return initializedServer.app(req, res);
+    } catch (error) {
+        console.error("Erreur lors de l'attente de l'initialisation", error);
+        res.status(500).send("Erreur interne du serveur lors de l'initialisation.");
+    }
+};
+
+// Pour le développement local traditionnel avec `node server.js`
 if (require.main === module) {
-    const server = new ISBNServer();
-    
-    // Gestionnaires pour arrêt propre
-    process.on('SIGINT', () => {
-        console.log('\n🛑 Arrêt du serveur...');
-        server.stop();
+    initPromise.then(s => {
+        // On appelle `start()` sur l'instance de serveur résolue
+        s.start();
+
+        process.on('SIGINT', () => {
+            console.log('\n🛑 Arrêt du serveur...');
+            s.stop();
+        });
+        process.on('SIGTERM', () => {
+            console.log('\n🛑 Arrêt du serveur...');
+            s.stop();
+        });
     });
-    process.on('SIGTERM', () => {
-        console.log('\n🛑 Arrêt du serveur...');
-        server.stop();
-    });
-    
-    server.start();
-} else {
-    // Export pour Vercel : on initialise le serveur et on exporte l'app Express
-    const server = new ISBNServer();
-    // Vercel a besoin que l'initialisation (chargement DB) soit terminée
-    module.exports = server.loadDatabase().then(() => server.app);
 }

@@ -240,3 +240,5 @@ pnpm-lock.yaml
 *.prof
 *.cpuprofile
 *.heapprofile 
+.vercel
+.env*.local
