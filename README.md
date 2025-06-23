@@ -4,11 +4,6 @@
 
 Une application moderne de recherche de livres par ISBN avec interface intuitive, scanner intégré et base de données locale.
 
-## 🔥 Nouveautés de la v2.0.0
-
-- 🌗 **Thème Clair/Sombre** - Adaptez l'interface à votre préférence visuelle.
-- 🛡️ **Sécurité renforcée** - Utilisation de Helmet et de la limitation de débit pour l'API.
-- ⚡ **Performances améliorées** - Optimisation du code frontend et backend.
 
 ## ✨ Fonctionnalités
 
@@ -20,6 +15,8 @@ Une application moderne de recherche de livres par ISBN avec interface intuitive
 - 🎨 **Interface moderne** - Design responsive et animations fluides
 - 🌗 **Thème Clair/Sombre** - Adaptez l'interface à votre préférence.
 - 🌍 **API REST** - Backend optionnel pour partage de données
+- 🛡️ **Sécurité renforcée** - Utilisation de Helmet et de la limitation de débit pour l'API.
+- ⚡ **Performances améliorées** - Optimisation du code frontend et backend.
 
 ## 🚀 Installation
 
